@@ -111,7 +111,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
 
         try {
-            input_stream = this.getResources().openRawResource(R.raw.seoul_jonro);
+            input_stream = this.getResources().openRawResource(R.raw.seoul_road);
             buffer_reader = new BufferedReader(new InputStreamReader(input_stream, "EUC-KR"));
 
             InputStream json_input_stream = this.getResources().openRawResource(R.raw.road_data);
