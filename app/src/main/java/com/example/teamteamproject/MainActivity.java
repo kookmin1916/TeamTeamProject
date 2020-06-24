@@ -285,7 +285,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             BufferedReader file_buffer_reader = new BufferedReader(
                     new InputStreamReader(file_input_stream));
 
-            byte[] bytes = new byte[48];
+            byte[] bytes = new byte[(int)(file_input_stream.getChannel().size())];
             file_input_stream.read(bytes, 0, bytes.length);
             String data = decrypt(bytes);
             if(data != null) {
@@ -329,9 +329,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             try {
                 FileOutputStream file_output_stream = null;
+                String str = String.valueOf(latitude) + " " + String.valueOf(longitude);
+
                 file_output_stream = openFileOutput("last_position.txt", Context.MODE_PRIVATE);
-                file_output_stream.write(encrypt(String.valueOf(latitude) + " "
-                        + String.valueOf(longitude)));
+                file_output_stream.write(encrypt(str));
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (Exception e) {
