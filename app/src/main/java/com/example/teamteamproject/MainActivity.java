@@ -332,8 +332,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 file_output_stream = openFileOutput("last_position.txt", Context.MODE_PRIVATE);
                 file_output_stream.write(encrypt(String.valueOf(latitude) + " "
                         + String.valueOf(longitude)));
-//                file_output_stream.write(encryptor.encryptText(ALIAS_VALUE, String.valueOf(latitude) + " "
-//                        + String.valueOf(longitude)));
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (Exception e) {
