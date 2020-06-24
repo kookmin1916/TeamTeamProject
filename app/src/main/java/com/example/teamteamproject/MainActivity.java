@@ -2,6 +2,7 @@ package com.example.teamteamproject;
 
 import com.example.teamteamproject.R;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -19,6 +20,8 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.util.Log;
 import android.util.Pair;
 import android.view.View;
@@ -45,14 +48,18 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONStringer;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.Console;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -61,7 +68,17 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
+import java.security.SignatureException;
+import java.security.UnrecoverableEntryException;
+import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -69,10 +86,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
     GoogleMap google_map;
@@ -84,13 +106,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     InputStream input_stream;
     BufferedReader buffer_reader;
 
-//    HashMap<String, JSONObject> data_map = new HashMap<>();
     Hashteam<JSONObject> data_map = new Hashteam<>();
     List<JSONObject> road_list = new ArrayList<>();
     List<Marker> marker_list = new ArrayList<>();
     String chosen_road = "";
     Polyline last_polyline = null;
     Circle last_circle = null;
+
+    SecretKey secret_key = null;
+    byte[] iv = null;
 
     final int MY_PERMISSIONS_REQUEST_READ_CONTACTS = 100;
     final int INF = 987654321;
@@ -102,6 +126,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
+
+        secret_key = load_key();
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.google_map);
@@ -221,7 +247,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             for (int i = 0; i < json_array.length(); i++) {
                 JSONObject current_object = json_array.getJSONObject(i);
-//                if (current_object.getString("관리기관명").equals("서울특별시 양천구청"))
                 data_map.put(current_object.getString("길명"), current_object);
             }
         } catch (IOException e) {
@@ -244,6 +269,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     @Override
     public void onMapReady(final GoogleMap googleMap) {
         google_map = googleMap;
@@ -259,7 +285,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             BufferedReader file_buffer_reader = new BufferedReader(
                     new InputStreamReader(file_input_stream));
 
-            String data = file_buffer_reader.readLine();
+            byte[] bytes = new byte[48];
+            file_input_stream.read(bytes, 0, bytes.length);
+            String data = decrypt(bytes);
             if(data != null) {
                 String[] position = data.split(" ");
                 latitude = Double.parseDouble(position[0]);
@@ -268,6 +296,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -282,6 +312,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private final LocationListener mLocationListener = new LocationListener() {
+        @RequiresApi(api = Build.VERSION_CODES.M)
         @SuppressLint("SetTextI18n")
         public void onLocationChanged(Location location) {
             double longitude = location.getLongitude();
@@ -299,9 +330,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             try {
                 FileOutputStream file_output_stream = null;
                 file_output_stream = openFileOutput("last_position.txt", Context.MODE_PRIVATE);
-                file_output_stream.write((String.valueOf(latitude) + " "
-                        + String.valueOf(longitude)).getBytes());
+                file_output_stream.write(encrypt(String.valueOf(latitude) + " "
+                        + String.valueOf(longitude)));
+//                file_output_stream.write(encryptor.encryptText(ALIAS_VALUE, String.valueOf(latitude) + " "
+//                        + String.valueOf(longitude)));
             } catch (IOException e) {
+                e.printStackTrace();
+            } catch (Exception e) {
                 e.printStackTrace();
             }
 
@@ -437,31 +472,43 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         Toast.makeText(this, str, Toast.LENGTH_SHORT);
     }
 
-//    public static byte[] encrypt(String str) throws Exception {
-//        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-//        keyGenerator.init(128);
-//        SecretKey key = keyGenerator.generateKey();
-//        Charset charset = Charset.forName("UTF-8");
-//        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-//        byte[] iv = new SecureRandom().getSeed(16); // 이니셩벡터에 저장
-//
-//        cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
-//        byte[] encryptedData = cipher.doFinal(str.getBytes(charset));
-//
-//        return encryptedData;
-//    }
-//    public static String decrypt(byte[] data) throws Exception{
-//        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-//        keyGenerator.init(128);
-//        SecretKey key = keyGenerator.generateKey();
-//        Charset charset = Charset.forName("UTF-8");
-//        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-//
-//        cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
-//        byte[] decrypted = cipher.doFinal(encryptedData);
-//        System.out.println("* decrypted:");
-//        System.out.println(new String(decrypted,charset));
-//    }
+    public byte[] encrypt(String str) throws Exception {
+        Charset charset = Charset.forName("UTF-8");
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+
+        cipher.init(Cipher.ENCRYPT_MODE, secret_key, new IvParameterSpec(iv));
+        byte[] encryptedData = cipher.doFinal(str.getBytes(charset));
+
+        return encryptedData;
+    }
+
+    public String decrypt(byte[] data) throws Exception{
+        Charset charset = Charset.forName("UTF-8");
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+
+        cipher.init(Cipher.DECRYPT_MODE, secret_key, new IvParameterSpec(iv));
+        byte[] decrypted = cipher.doFinal(data);
+
+        return new String(decrypted, charset);
+    }
+
+    private SecretKey load_key() {
+        final byte[] KEY_DATA = {
+                (byte) -10, (byte) 40, (byte) -56, (byte) -40,
+                (byte) -52, (byte) 20, (byte) 61, (byte) -105,
+                (byte) -8, (byte) 99, (byte) -56, (byte) 97,
+                (byte) 103, (byte) -55, (byte) -110, (byte) -95,
+        };
+
+        iv = new byte[]{
+                (byte) 0x00, (byte) 0x01, (byte) 0x02, (byte) 0x03,
+                (byte) 0x04, (byte) 0x05, (byte) 0x06, (byte) 0x07,
+                (byte) 0x08, (byte) 0x09, (byte) 0x0A, (byte) 0x0B,
+                (byte) 0x0C, (byte) 0x0D, (byte) 0x0E, (byte) 0x0F,
+        };
+
+        return new SecretKeySpec(KEY_DATA, "aes");
+    }
 }
 
 class KeyandValue<V>{
@@ -486,7 +533,6 @@ class KeyandValue<V>{
     }
 }
 
-//해쉬 테이블 형태로 구현했습니다.
 class Hashteam<V>{
     final int defaultSize = 100;
     LinkedList<KeyandValue>[] kv;
