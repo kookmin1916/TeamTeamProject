@@ -31,6 +31,8 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.Circle;
+import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
@@ -55,13 +57,22 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.Buffer;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
     GoogleMap google_map;
@@ -73,11 +84,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     InputStream input_stream;
     BufferedReader buffer_reader;
 
-    HashMap<String, JSONObject> data_map = new HashMap<>();
+//    HashMap<String, JSONObject> data_map = new HashMap<>();
+    Hashteam<JSONObject> data_map = new Hashteam<>();
     List<JSONObject> road_list = new ArrayList<>();
     List<Marker> marker_list = new ArrayList<>();
     String chosen_road = "";
     Polyline last_polyline = null;
+    Circle last_circle = null;
 
     final int MY_PERMISSIONS_REQUEST_READ_CONTACTS = 100;
     final int INF = 987654321;
@@ -275,6 +288,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             double latitude = location.getLatitude();
             google_map.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(latitude, longitude)));
 
+            if(last_circle != null)
+                last_circle.remove();
+            CircleOptions circle_options = new CircleOptions();
+            circle_options.center(new LatLng(latitude, longitude));
+            circle_options.fillColor(Color.BLUE);
+            circle_options.radius(10);
+            last_circle = google_map.addCircle(circle_options);
+
             try {
                 FileOutputStream file_output_stream = null;
                 file_output_stream = openFileOutput("last_position.txt", Context.MODE_PRIVATE);
@@ -296,7 +317,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         idx = i;
                     }
                 }
-
                 if(idx != -1)
                     recommend_text_view.setText(road_list.get(idx).getString("길명")
                             + "(" + String.valueOf((int)(min_dist * 1000)) + "m)");
@@ -415,5 +435,123 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     public void showToastMessage(String str) {
         Toast.makeText(this, str, Toast.LENGTH_SHORT);
+    }
+
+//    public static byte[] encrypt(String str) throws Exception {
+//        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+//        keyGenerator.init(128);
+//        SecretKey key = keyGenerator.generateKey();
+//        Charset charset = Charset.forName("UTF-8");
+//        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+//        byte[] iv = new SecureRandom().getSeed(16); // 이니셩벡터에 저장
+//
+//        cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+//        byte[] encryptedData = cipher.doFinal(str.getBytes(charset));
+//
+//        return encryptedData;
+//    }
+//    public static String decrypt(byte[] data) throws Exception{
+//        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+//        keyGenerator.init(128);
+//        SecretKey key = keyGenerator.generateKey();
+//        Charset charset = Charset.forName("UTF-8");
+//        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+//
+//        cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+//        byte[] decrypted = cipher.doFinal(encryptedData);
+//        System.out.println("* decrypted:");
+//        System.out.println(new String(decrypted,charset));
+//    }
+}
+
+class KeyandValue<V>{
+    String key;
+    private V value;
+
+    public KeyandValue(String key, V value){
+        this.key = key;
+        this.value = value;
+    }
+
+    public V getValue(){
+        return this.value;
+    }
+
+    public void setValue(V value){
+        this.value = value;
+    }
+
+    public String toString(){
+        return "KEY: " + this.key + ",  VALUE: " + this.value;
+    }
+}
+
+//해쉬 테이블 형태로 구현했습니다.
+class Hashteam<V>{
+    final int defaultSize = 100;
+    LinkedList<KeyandValue>[] kv;
+    int code;
+    String HashKey;
+    V HashValue;
+
+    public Hashteam(){
+        this.kv = new LinkedList[defaultSize];
+    }
+    public Hashteam(int size){
+        this.kv = new LinkedList[size];
+    }
+
+    int makeCode(String key){
+        code = 0;
+        for(int i=0; i<key.length(); i++){
+            code += key.charAt(i);
+        }
+        return code;
+    }
+    int makeIndex(int selfcode){
+        return selfcode%kv.length;
+    }
+    KeyandValue find(String key, LinkedList<KeyandValue> link){
+        for(KeyandValue lkv : link){
+            if(lkv.key.equals(key)){
+                return lkv;
+            }
+        }
+        return null;
+    }
+
+    public void put(String key, V value){
+        this.HashKey = key;
+        this.HashValue = value;
+        int c = makeCode(this.HashKey);
+        int i = makeIndex(c);
+
+        LinkedList<KeyandValue> link = kv[i];
+
+        if(link == null){
+            link = new LinkedList<KeyandValue>();
+            kv[i] = link;
+        }
+        KeyandValue lkv = find(key, link);
+        if(lkv == null){
+            link.addLast(new KeyandValue(this.HashKey, this.HashValue));
+        }
+        else{
+            lkv.setValue(this.HashValue);
+        }
+    }
+    public V get(String key){
+        int c = makeCode(key);
+        int i = makeIndex(c);
+
+        LinkedList<KeyandValue> link = kv[i];
+        KeyandValue lkv = find(key, link);
+
+        if(lkv != null){
+            return (V) lkv.getValue();
+        }
+        else{
+            return null;
+        }
     }
 }
