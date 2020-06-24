@@ -11,29 +11,59 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
-<!--        <TextView-->
-<!--            android:id="@+id/textView1"-->
-<!--            android:layout_width="wrap_content"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:text="GPS 에 수신된 현재위치"-->
-<!--            android:textAppearance="?android:attr/textAppearanceLarge"-->
-<!--            tools:ignore="MissingConstraints"/>-->
 
-<!--        <TextView-->
-<!--            android:id="@+id/textView2"-->
-<!--            android:layout_width="wrap_content"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:text="결과창"-->
-<!--            android:textAppearance="?android:attr/textAppearanceLarge"-->
-<!--            tools:ignore="MissingConstraints"/>-->
-
-        <ToggleButton
-            android:id="@+id/toggle1"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textOff="현재 위치로 이동"
-            android:textOn="현재 위치로 이동 종료"
-            tools:ignore="MissingConstraints"/>
+            android:orientation="horizontal">
+
+            <ToggleButton
+                android:id="@+id/toggle1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textOff="현재 위치로 이동"
+                android:textOn="현재 위치로 이동 종료"
+                tools:ignore="MissingConstraints"/>
+
+            <ToggleButton
+                android:id="@+id/toggle2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textOff="관광로 안내 시작"
+                android:textOn="관광로 안내 종료"
+                tools:ignore="MissingConstraints"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="추천 관광 코스: "/>
+            <TextView
+                android:id="@+id/recommend_text_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""/>
+        </LinearLayout>
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="선택한 관광 코스: "/>
+            <TextView
+                android:id="@+id/chosen_text_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""/>
+        </LinearLayout>
 
         <fragment
             android:layout_width="match_parent"
